@@ -1,0 +1,25 @@
+name = "website-analyzer-proxy"
+main = "proxy/worker.js"
+compatibility_date = "2024-09-01"
+
+# 配额 KV namespace（部署后用 wrangler kv:namespace create QUOTA 创建）
+# 创建后把 id 填到下方并取消注释
+# [[kv_namespaces]]
+# binding = "QUOTA"
+# id = "<KV_NAMESPACE_ID>"
+
+# 每设备每日配额上限（默认 3 次完整分析 = 9 次 AI 调用）
+[vars]
+QUOTA_LIMIT = "3"
+
+# 上游 AI 服务商 API Key（共享 Key 托管）
+# 仅配置你启用的服务商，未配置的 providerId 会返回 400
+# ⚠️ 不要把真实 Key 直接写在这里并提交到 git！
+#   - 本地开发：用 `wrangler secret put AI_QWEN_KEY` 命令设置
+#   - 生产部署：在 Cloudflare Dashboard → Worker → Settings → Variables 中添加
+# 下面是占位示例，实际通过 secret 注入
+# [vars]
+# AI_QWEN_KEY = ""
+# AI_DEEPSEEK_KEY = ""
+# AI_ZHIPU_KEY = ""
+# AI_OPENAI_KEY = ""
