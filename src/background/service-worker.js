@@ -7,6 +7,8 @@ import { withRetry } from '../lib/retry.js';
 import { PROXY_BASE } from '../lib/config-loader.js';
 import { createConfigStorage } from '../lib/config-storage.js';
 import { getProvider } from '../config/providers.js';
+import { assessContentSufficiency } from '../lib/content-sufficiency.js';
+import { classifyError } from '../lib/error-classifier.js';
 
 // 当前分析结果（供 popup 查询）
 let currentResults = null;
@@ -82,6 +84,16 @@ async function runAnalysis(retryKeys = null) {
   const pageData = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_CONTENT' });
   if (!pageData) throw new Error('未能提取页面内容');
 
+  // 2.1 内容充足性检测（不阻塞，仅推送警告）
+  const sufficiency = assessContentSufficiency(pageData);
+  if (!sufficiency.sufficient || sufficiency.warning) {
+    notifyPopup('CONTENT_WARNING', {
+      sufficient: sufficiency.sufficient,
+      reason: sufficiency.reason,
+      warning: sufficiency.warning,
+    });
+  }
+
   // 3. 加载配置并解析请求参数
   const config = await loadConfig();
   const deviceId = config.mode === 'free' ? await getDeviceId() : null;
@@ -95,6 +107,13 @@ async function runAnalysis(retryKeys = null) {
 
   // 5. 并行调度三问
   const results = await analyzeSite(pageData, { chat: chatFn }, (update) => {
+    // 失败时附加分类后的用户提示
+    if (update.status === 'rejected' && update.reason) {
+      const classified = classifyError(update.reason);
+      update.errorKind = classified.kind;
+      update.errorUserMessage = classified.userMessage;
+      update.retryable = classified.retryable;
+    }
     notifyPopup('QUESTION_PROGRESS', { update });
   });
 
