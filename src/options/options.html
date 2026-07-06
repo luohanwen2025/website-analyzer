@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>设置 - AI 网站分析助手</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1>设置</h1>
+      <p class="subtitle">选择调用模式与服务商</p>
+    </header>
+
+    <main class="form">
+      <!-- 调用模式 -->
+      <section class="field">
+        <label class="field-label">调用模式</label>
+        <div class="radio-group">
+          <label class="radio">
+            <input type="radio" name="mode" value="free" />
+            <span>免费体验</span>
+            <small class="hint">无需 API Key，按设备每日限次</small>
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="self" />
+            <span>自有 Key</span>
+            <small class="hint">直连服务商，无次数限制</small>
+          </label>
+        </div>
+      </section>
+
+      <!-- 服务商 -->
+      <section class="field" id="providerField">
+        <label class="field-label" for="providerSelect">AI 服务商</label>
+        <select id="providerSelect" class="select"></select>
+      </section>
+
+      <!-- 模型 -->
+      <section class="field">
+        <label class="field-label" for="modelInput">模型</label>
+        <input id="modelInput" type="text" class="input" placeholder="留空使用服务商默认模型" />
+      </section>
+
+      <!-- API Key（仅自有 Key 模式） -->
+      <section class="field" id="apiKeyField">
+        <label class="field-label" for="apiKeyInput">API Key</label>
+        <input id="apiKeyInput" type="password" class="input" placeholder="sk-..." autocomplete="off" />
+        <small class="hint">仅存储于本地 chrome.storage，不会上传任何服务器</small>
+      </section>
+
+      <!-- 操作按钮 -->
+      <section class="actions">
+        <button id="saveBtn" class="btn btn-primary">保存</button>
+        <button id="resetBtn" class="btn btn-ghost">恢复默认</button>
+      </section>
+
+      <!-- 状态提示 -->
+      <div id="status" class="status"></div>
+    </main>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

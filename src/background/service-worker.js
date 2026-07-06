@@ -4,11 +4,15 @@ import { resolveRequestConfig } from '../lib/router.js';
 import { createAiClient } from '../lib/ai-client.js';
 import { analyzeSite } from '../lib/analyzer-orchestrator.js';
 import { withRetry } from '../lib/retry.js';
-import { mergeWithDefaults, PROXY_BASE } from '../lib/config-loader.js';
+import { PROXY_BASE } from '../lib/config-loader.js';
+import { createConfigStorage } from '../lib/config-storage.js';
 import { getProvider } from '../config/providers.js';
 
 // 当前分析结果（供 popup 查询）
 let currentResults = null;
+
+// 配置存储（统一走 config-storage 适配层，便于校验/重置）
+const configStorage = createConfigStorage(chrome.storage.local);
 
 // 设备 ID（免费体验配额用，持久化）
 let cachedDeviceId = null;
@@ -27,10 +31,9 @@ async function getDeviceId() {
   return newId;
 }
 
-/** 读取用户配置 */
+/** 读取用户配置（走 config-storage 适配层） */
 async function loadConfig() {
-  const stored = await chrome.storage.local.get(['mode', 'providerId', 'model', 'apiKey']);
-  return mergeWithDefaults(stored);
+  return configStorage.load();
 }
 
 /** 向当前打开的 Popup 推送消息 */

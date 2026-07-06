@@ -153,10 +153,9 @@ copyAllBtn.addEventListener('click', async () => {
   }
 });
 
-/** 设置按钮（M5 实现） */
+/** 设置按钮：打开设置页 */
 settingsBtn.addEventListener('click', () => {
-  // M5 将打开设置页
-  alert('设置页将在 M5 实现');
+  chrome.runtime.openOptionsPage();
 });
 
 /** 接收 background 推送 */
