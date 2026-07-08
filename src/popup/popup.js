@@ -17,11 +17,16 @@ const siteInfo = document.getElementById('siteInfo');
 const settingsBtn = document.getElementById('settingsBtn');
 
 let currentUrl = '';
+// 记录当前标签页 id，随消息带给 service-worker。
+// 原因：popup 上下文里 currentWindow 可靠，而 service-worker 上下文里
+// chrome.tabs.query({currentWindow:true}) 在窗口失焦时会返回空（曾导致"未找到活动标签页"）。
+let currentTabId = null;
 
-/** 初始化：显示当前标签页域名 */
+/** 初始化：显示当前标签页域名并记录 tabId */
 async function initSiteInfo() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
+  currentTabId = tab.id;
   try {
     const url = new URL(tab.url);
     currentUrl = url.href;
@@ -110,7 +115,7 @@ btn.addEventListener('click', async () => {
   copyAllBtn.disabled = true;
 
   try {
-    chrome.runtime.sendMessage({ type: 'START_ANALYSIS_V2' });
+    chrome.runtime.sendMessage({ type: 'START_ANALYSIS_V2', tabId: currentTabId });
     // 结果由 background 通过 onMessage 推送
   } catch (e) {
     btn.disabled = false;
@@ -131,7 +136,7 @@ document.querySelectorAll('.panel-header').forEach((header) => {
 document.addEventListener('click', (e) => {
   const retryTarget = e.target.dataset.retry;
   if (retryTarget) {
-    chrome.runtime.sendMessage({ type: 'RETRY_QUESTION', key: retryTarget });
+    chrome.runtime.sendMessage({ type: 'RETRY_QUESTION', key: retryTarget, tabId: currentTabId });
     updatePanelStatus(retryTarget, 'loading');
     renderPanelResult(retryTarget, 'loading', null);
   }
@@ -139,7 +144,7 @@ document.addEventListener('click', (e) => {
 
 /** 重试失败项按钮 */
 retryBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'RETRY_ALL_FAILED' });
+  chrome.runtime.sendMessage({ type: 'RETRY_ALL_FAILED', tabId: currentTabId });
 });
 
 /** 复制全部 */
@@ -165,6 +170,14 @@ chrome.runtime.onMessage.addListener((msg) => {
   } else if (msg.type === 'ANALYSIS_DONE') {
     updateActions(msg.overall);
     btn.disabled = false;
+    // 整体失败（如标签页/提取阶段错误）：把仍卡在 loading 的面板复位为错误提示。
+    // 曾因不复位导致永久"分析中…"，掩盖真实错误、误导排查。
+    if (msg.overall === 'error') {
+      for (const key of QUESTION_KEYS) {
+        updatePanelStatus(key, 'rejected');
+        renderPanelResult(key, 'rejected', msg.error || '分析失败，请查看 Service Worker 控制台');
+      }
+    }
   }
 });
 

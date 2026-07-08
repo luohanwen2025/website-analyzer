@@ -72,16 +72,23 @@ function buildChatFn(requestConfig) {
 }
 
 /** 执行完整分析流程 */
-async function runAnalysis(retryKeys = null) {
-  // 1. 获取当前标签页
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) throw new Error('未找到活动标签页');
+async function runAnalysis(tabId, retryKeys = null) {
+  // 1. 获取标签页信息
+  // 用 popup 传入的 tabId（popup 上下文里 currentWindow 可靠），而非在 service-worker 里
+  // chrome.tabs.query({currentWindow:true})——后者在窗口失焦时会返回空，曾导致"未找到活动标签页"。
+  if (!tabId) throw new Error('缺少 tabId');
+  let tab;
+  try {
+    tab = await chrome.tabs.get(tabId);
+  } catch (e) {
+    throw new Error('无法获取标签页信息：' + e.message);
+  }
   if (!isAnalyzableUrl(tab.url || '')) {
     throw new Error('该页面无法分析（浏览器内部页）');
   }
 
   // 2. 提取页面内容
-  const pageData = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_CONTENT' });
+  const pageData = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_CONTENT' });
   if (!pageData) throw new Error('未能提取页面内容');
 
   // 2.1 内容充足性检测（不阻塞，仅推送警告）
@@ -128,17 +135,9 @@ async function runAnalysis(retryKeys = null) {
 
 // 消息监听
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'START_ANALYSIS') {
-    // M1 兼容：仅返回提取结果
-    handleExtractOnly().then(sendResponse).catch((err) =>
-      sendResponse({ type: 'EXTRACTION_ERROR', error: err.message })
-    );
-    return true;
-  }
-
   if (msg.type === 'START_ANALYSIS_V2') {
     // M4 完整流程
-    runAnalysis()
+    runAnalysis(msg.tabId)
       .then(() => sendResponse({ type: 'OK' }))
       .catch((err) => {
         notifyPopup('ANALYSIS_DONE', { overall: 'error', error: err.message });
@@ -149,14 +148,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === 'RETRY_QUESTION') {
     // 单问重试（M4 阶段简化为重新全量分析，后续优化）
-    runAnalysis([msg.key])
+    runAnalysis(msg.tabId, [msg.key])
       .then(() => sendResponse({ type: 'OK' }))
       .catch((err) => sendResponse({ type: 'ERROR', error: err.message }));
     return true;
   }
 
   if (msg.type === 'RETRY_ALL_FAILED') {
-    runAnalysis()
+    runAnalysis(msg.tabId)
       .then(() => sendResponse({ type: 'OK' }))
       .catch((err) => sendResponse({ type: 'ERROR', error: err.message }));
     return true;
@@ -167,18 +166,3 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 });
-
-/** M1 兼容：仅提取页面内容 */
-async function handleExtractOnly() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) throw new Error('未找到活动标签页');
-  if (!isAnalyzableUrl(tab.url || '')) {
-    return { type: 'EXTRACTION_ERROR', error: '该页面无法分析（浏览器内部页）' };
-  }
-  try {
-    const response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_CONTENT' });
-    return response || { type: 'EXTRACTION_ERROR', error: '未能提取内容' };
-  } catch (e) {
-    return { type: 'EXTRACTION_ERROR', error: '页面未就绪，请刷新后重试（' + e.message + '）' };
-  }
-}
