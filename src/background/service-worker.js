@@ -1,5 +1,6 @@
 // Background Service Worker —— AI 调用中枢（M4 端到端串联）
 import { isAnalyzableUrl } from '../lib/url-filter.js';
+import { unwrapExtractionResponse } from '../lib/analyzer.js';
 import { resolveRequestConfig } from '../lib/router.js';
 import { createAiClient } from '../lib/ai-client.js';
 import { analyzeSite } from '../lib/analyzer-orchestrator.js';
@@ -88,8 +89,11 @@ async function runAnalysis(tabId, retryKeys = null) {
   }
 
   // 2. 提取页面内容
-  const pageData = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_CONTENT' });
-  if (!pageData) throw new Error('未能提取页面内容');
+  // content script 返回 { type, data } 包装；必须解包取 data 再传给下游
+  // （analyzeSite / assessContentSufficiency 需要的是 extractPageContent 的返回值本身，
+  //   曾因误传整个包装对象，AI 收到空白网站信息）
+  const resp = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_CONTENT' });
+  const pageData = unwrapExtractionResponse(resp);
 
   // 2.1 内容充足性检测（不阻塞，仅推送警告）
   const sufficiency = assessContentSufficiency(pageData);

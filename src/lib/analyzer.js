@@ -20,3 +20,21 @@ export function analyzeCurrentPage(url, doc) {
   const data = extractPageContent(doc);
   return { type: 'EXTRACTED_CONTENT', data };
 }
+
+/**
+ * 解包 content script 的提取响应
+ * content script 返回 { type: 'EXTRACTED_CONTENT', data } 或 { type: 'EXTRACTION_ERROR', error }；
+ * 下游 analyzeSite / assessContentSufficiency 需要的是 data 本身，不能误传整个包装对象
+ * （曾因未解包，AI 收到空白网站信息、只能给泛泛分析）。
+ * @param {{type:string, data?:Object, error?:string}|null|undefined} resp
+ * @returns {Object} 提取到的页面数据（extractPageContent 的返回值）
+ * @throws {Error} 响应为空 / 错误类型 / 缺少 data
+ */
+export function unwrapExtractionResponse(resp) {
+  if (!resp) throw new Error('未能提取页面内容');
+  if (resp.type === 'EXTRACTION_ERROR') {
+    throw new Error('页面内容提取失败：' + (resp.error || '未知错误'));
+  }
+  if (!resp.data) throw new Error('未能提取页面内容（响应缺少 data）');
+  return resp.data;
+}

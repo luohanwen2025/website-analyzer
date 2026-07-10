@@ -58,6 +58,7 @@ sw   ──ANALYSIS_DONE───────► popup（overall: done | done-wi
 ```
 
 - 消息类型：`START_ANALYSIS_V2`、`RETRY_QUESTION`、`RETRY_ALL_FAILED`（三者均由 popup 携带 `tabId` 一并发送——service-worker 上下文里 `chrome.tabs.query({currentWindow:true})` 在窗口失焦时会返回空，tab 必须由 popup 传入）、`GET_RESULTS`、`QUESTION_PROGRESS`、`ANALYSIS_DONE`（`overall: error` 时 popup 会把仍处 loading 的面板复位并显示 `error` 字段）、`CONTENT_WARNING`。
+- content script 对 `EXTRACT_CONTENT` 返回 `{ type:'EXTRACTED_CONTENT', data }`（或 `{ type:'EXTRACTION_ERROR', error }`）；service-worker 必须用 [analyzer.js](src/lib/analyzer.js) 的 `unwrapExtractionResponse` 解包出 `data` 再传给 `analyzeSite` / `assessContentSufficiency`——直接传整个包装对象会让下游拿到空字段、AI 只能给泛泛分析。
 - orchestrator 返回 `{ [key]: { status: 'fulfilled'|'rejected', value?|reason? } }`。
 
 ### 4. 双路径路由
