@@ -2,10 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    environment: 'jsdom',
+    // happy-dom：轻量 DOM，替代 jsdom。Windows 下 jsdom×29 实例化间歇性耗尽内存/句柄，
+    // 导致全量 "No test suite found"（fileParallelism + node 内存 flag 均未根治）。
+    // happy-dom 实例化快/省内存，可并发，根治。
+    environment: 'happy-dom',
     include: ['tests/**/*.test.js'],
-    // Windows 下 29 个 jsdom 并行实例化会耗尽资源，导致全量 npm test 报
-    // "No test suite found"（每文件环境加载失败、describe 未注册）。串行稳定（289/289，~107s）。
-    fileParallelism: false,
   },
 });
