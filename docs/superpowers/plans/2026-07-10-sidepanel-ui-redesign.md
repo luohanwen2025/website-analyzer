@@ -4,7 +4,7 @@
 
 **Goal:** 将插件从 popup 迁移到 Side Panel，实现点图标直接分析、面板不因外部点击关闭、AITDK 风格左侧标签栏布局。
 
-**Architecture:** 移除 popup，改用 `chrome.sidePanel`。点工具栏图标 toggle 开关面板（`openPanelOnActionClick`）。面板加载即自动发起三问分析；左侧标签栏（图标+文字+状态）+ 右侧内容区。复用现有消息流（`START_ANALYSIS_V2`/`QUESTION_PROGRESS`/`ANALYSIS_DONE`/`RETRY_QUESTION`/`GET_RESULTS`）与 lib（`markdown-renderer`/`copy-builder`）。
+**Architecture:** 移除 popup，改用 `chrome.sidePanel`。点工具栏图标 toggle 开/关面板（`setPanelBehavior({openPanelOnActionClick:true})`，window 级）。面板常驻右侧、加载即自动发起三问分析；左侧标签栏（图标+文字+状态）+ 右侧内容区。放弃 per-tab 可见性（Chrome 未修 bug #987），改用「数据按 tab 隔离」弥补（切到 B 显示 B 分析/空态，回 A 显示 A 结果）。复用现有消息流（`START_ANALYSIS_V2`/`QUESTION_PROGRESS`/`ANALYSIS_DONE`/`RETRY_QUESTION`/`GET_RESULTS`）与 lib（`markdown-renderer`/`copy-builder`）。
 
 **Tech Stack:** Chrome Extension MV3、`chrome.sidePanel` API（Chrome 114+）、原生 JS/HTML/CSS（无构建）。
 
@@ -22,7 +22,7 @@
 | 文件 | 责任 | 动作 |
 |------|------|------|
 | `manifest.json` | 声明 sidePanel 权限 + side_panel 路径；移除 default_popup | 改 |
-| `src/background/service-worker.js` | 顶层调 `setPanelBehavior({openPanelOnActionClick:true})` | 改 |
+| `src/background/service-worker.js` | 顶层 `setPanelBehavior({openPanelOnActionClick:true})` 配置点图标 toggle 开关面板 | 改 |
 | `src/sidepanel/sidepanel.html` | header + 左标签栏 + 右内容区结构 | 新建 |
 | `src/sidepanel/sidepanel.css` | 左右分栏 + 标签状态 + Markdown 样式 | 新建 |
 | `src/sidepanel/sidepanel.js` | 自动分析/进度/标签切换/重试/复制/设置 | 新建 |
@@ -40,7 +40,7 @@
 - Create: `src/sidepanel/sidepanel.html`（最小占位，Task 2 替换）
 
 **Interfaces:**
-- Produces: `manifest.json` 声明 `side_panel.default_path = "src/sidepanel/sidepanel.html"`、`permissions` 含 `"sidePanel"`、`action` 无 `default_popup`；service-worker 启动时配置 `openPanelOnActionClick:true`。
+- Produces: `manifest.json` 声明 `side_panel.default_path = "src/sidepanel/sidepanel.html"`、`permissions` 含 `"sidePanel"`、`action` 无 `default_popup`；service-worker 顶层 `setPanelBehavior({openPanelOnActionClick:true})`，点图标 toggle 开关面板。
 
 - [ ] **Step 1: 改 `manifest.json`**
 
@@ -80,16 +80,21 @@
 
 要点：`permissions` 加 `"sidePanel"`；`action` 删掉 `default_popup`（这样点图标走 toggle，不弹 popup）；新增 `side_panel` 段。
 
-- [ ] **Step 2: service-worker 顶部加 setPanelBehavior**
+- [ ] **Step 2: service-worker 配置 setPanelBehavior（点图标 toggle 开关面板）**
 
 在 `src/background/service-worker.js` 所有 import 语句之后、`let currentResults` 之前插入：
 
 ```js
-// Side Panel：点工具栏图标 toggle 开关面板（而非弹 popup）。幂等的持久设置，SW 启动时设一次即可。
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((e) => console.error('setPanelBehavior 失败', e));
+// Side Panel：点工具栏图标 toggle 开/关面板（window 级）。
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((e) =>
+  console.error('设置 Side Panel 行为失败', e)
+);
 ```
+
+> **为什么不用 per-tab（切 tab 自动隐藏面板）**：Chrome sidePanel 的 per-tab 可见性是**未修 bug**（[GoogleChrome/chrome-extensions-samples#987](https://github.com/GoogleChrome/chrome-extensions-samples/issues/987)）——`open({tabId})` 仍是全局显示（切 tab 不隐藏），而全局 `setOptions({enabled:false})` 又让 `open` 报 `No active side panel for tabId`。四版实测（setPanelBehavior → open({tabId}) → +全局 enabled:false → 调顺序）均失败，故放弃 per-tab，改 window 级 toggle。
+> - 行为：面板常驻右侧（切 tab 不消失，但只占窄条、不挡网页主体）；点图标开/关；浏览器 × 关闭。
+> - 满足原始优化 2：点面板外不关、切 tab 能正常用网页、点图标/× 可关。
+> - 「切 B 看不到面板」做不到（Chrome 限制）；改用**数据按 tab 隔离**（Task 3）弥补：切到 B 面板显示 B 的分析/空态，回 A 显示 A 结果。
 
 - [ ] **Step 3: 建最小占位 `src/sidepanel/sidepanel.html`**
 

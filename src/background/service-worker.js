@@ -11,6 +11,17 @@ import { getProvider } from '../config/providers.js';
 import { assessContentSufficiency } from '../lib/content-sufficiency.js';
 import { classifyError } from '../lib/error-classifier.js';
 
+// Side Panel：点工具栏图标 toggle 开/关面板（window 级）。
+// 放弃 per-tab 可见性：Chrome sidePanel 的 per-tab 是未修 bug（GoogleChrome/chrome-extensions-samples#987）——
+//   open({tabId}) 仍是全局显示（切 tab 不隐藏），而全局 setOptions({enabled:false}) 又会让 open 报
+//   "No active side panel for tabId"（per-tab setOptions 需带 path + await 才不报错，但可见性仍全局）。
+//   四版实测印证走不通，故改用 window 级 toggle。
+// 行为：面板常驻右侧（切 tab 不消失，但只占窄条、不挡网页主体）；点图标开/关；浏览器 × 关闭。
+// 数据按 tab 隔离在 sidepanel.js 处理（Task 3）：切到 B 显示 B 的分析/空态，回 A 显示 A 结果。
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((e) =>
+  console.error('设置 Side Panel 行为失败', e)
+);
+
 // 当前分析结果（供 popup 查询）
 let currentResults = null;
 

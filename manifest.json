@@ -3,15 +3,17 @@
   "name": "AI 网站分析助手",
   "version": "0.5.0",
   "description": "一键调用 AI 分析网站定位、商业模式与流量策略",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background/service-worker.js",
     "type": "module"
   },
   "action": {
-    "default_popup": "src/popup/popup.html",
     "default_title": "AI 网站分析助手"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
   },
   "content_scripts": [
     {
