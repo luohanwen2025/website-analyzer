@@ -3,8 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <title>AI 网站分析助手</title>
+  <link rel="stylesheet" href="sidepanel.css" />
 </head>
 <body>
-  <p>Side Panel 占位（Task 2 替换）</p>
+  <header class="header">
+    <div class="title">
+      <span class="logo">🤖</span>
+      <span class="name">AI 网站分析助手</span>
+    </div>
+    <div class="actions">
+      <button id="copyAllBtn" class="icon-btn" title="复制全部" disabled>📋</button>
+      <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+    </div>
+  </header>
+  <div id="siteInfo" class="site-info"></div>
+
+  <main class="main">
+    <nav class="tabs">
+      <button class="tab active" data-key="positioning">
+        <span class="tab-status" data-status="positioning"></span>
+        <span class="tab-label">产品定位</span>
+      </button>
+      <button class="tab" data-key="monetization">
+        <span class="tab-status" data-status="monetization"></span>
+        <span class="tab-label">核心卖点</span>
+      </button>
+      <button class="tab" data-key="traffic">
+        <span class="tab-status" data-status="traffic"></span>
+        <span class="tab-label">流量来源</span>
+      </button>
+    </nav>
+    <section class="content">
+      <h2 id="contentTitle" class="content-title"></h2>
+      <div id="contentBody" class="content-body"></div>
+    </section>
+  </main>
+
+  <script type="module" src="sidepanel.js"></script>
 </body>
 </html>
