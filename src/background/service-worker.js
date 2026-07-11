@@ -165,7 +165,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // 单问重试（M4 阶段简化为重新全量分析，后续优化）
     runAnalysis(msg.tabId, [msg.key])
       .then(() => sendResponse({ type: 'OK' }))
-      .catch((err) => sendResponse({ type: 'ERROR', error: err.message }));
+      .catch((err) => {
+        // 与 START_ANALYSIS_V2 一致：失败必须推送 ANALYSIS_DONE(error)。
+        // runAnalysis 可能在 content 提取阶段（chrome.tabs.sendMessage）就 reject，
+        // 走不到会发 QUESTION_PROGRESS 的 analyzeSite；而 sidepanel 又是「无回调」发
+        // RETRY_QUESTION（不接 sendResponse），不推 ANALYSIS_DONE 则三路信号全断、标签永久卡 loading。
+        notifyPopup('ANALYSIS_DONE', { overall: 'error', error: err.message });
+        sendResponse({ type: 'ERROR', error: err.message });
+      });
     return true;
   }
 
